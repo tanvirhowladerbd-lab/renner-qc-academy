@@ -1,0 +1,284 @@
+RENNER QC ACADEMY
+App Upgrade — Master Agent Prompt
+Complete Instructions for Your Antigravity Agent
+Version 2.0  |  2026  |  Movimoda Asia-Pacific Bangladesh
+ 
+What This Document Contains
+This document gives you the complete prompt to upgrade your Renner QC Academy app (localhost:5173). Copy each section's prompt and run it in your Antigravity agent. The upgrades are organized into 5 tasks:
+Task 1 → Fix Daily Tips (navigation + category filter)
+Task 2 → Add Login System (User ID + Name + Admin panel)
+Task 3 → Add Report Comment Chatbox (AI-organized findings)
+Task 4 → Fix QC Assistant response format (short + clean)
+Task 5 → Visual UI upgrade (modern, user-friendly)
+IMPORTANT: Run one task at a time. Test after each task before running the next.
+ 
+TASK 1 — Fix Daily Tips (Navigation + Category Filter)
+Problem
+Right now the Daily Tips section always shows the same tip. Users cannot go back or forward to see other tips. There is no way to filter by category (Garments, Footwear, etc.).
+What You Want
+← Back button and → Forward button to navigate tips one by one
+Category filter dropdown: Garments, Footwear, Bags, Jewelry, All
+Tip counter showing: Tip 3 of 22
+Smooth slide animation when navigating
+Prompt to Give Your Agent
+Copy everything inside the box below and paste to your agent:
+TASK: Upgrade the Daily Tips section in my Renner QC Academy app.
+ 
+CURRENT PROBLEM:
+- Daily Tips always shows the same single tip every time
+- No way to navigate forward/backward through tips
+- No category filter
+ 
+REQUIRED CHANGES to the Daily Tips component:
+ 
+1. NAVIGATION BUTTONS
+   - Add a LEFT ARROW button (←) to go to previous tip
+   - Add a RIGHT ARROW button (→) to go to next tip
+   - Show a counter: 'Tip 3 of 22' between the arrows
+   - When user reaches the last tip and clicks next, loop back to tip 1
+   - When user is at tip 1 and clicks back, loop to last tip
+ 
+2. CATEGORY FILTER
+   - Add a dropdown or pill-style filter above the tips card
+   - Filter options: All Categories | Garments | Footwear | Bags & Belts |
+     Jewelry | Eyewear | Children Safety
+   - When a category is selected, only show tips for that category
+   - Reset counter to 'Tip 1 of X' when category changes
+ 
+3. ANIMATION
+   - Add a smooth slide-left or fade transition when tip changes
+   - Keep the existing Glassmorphism dark theme and card style
+ 
+4. DATABASE
+   - Tips are in Supabase 'daily_tips' table
+   - Fetch ALL tips on load, filter client-side by category
+   - Use the existing 'category' column in daily_tips table
+ 
+Do not change any other section. Only update the Daily Tips component.
+Keep the existing color scheme, fonts, and overall layout.
+ 
+TASK 2 — Login System (User ID + Name + Admin Panel)
+Problem
+Right now anyone can open the app and use it. There is no login. You have 13+ QC inspectors and you want to track who answered what, who scored how much, and see all activity as admin.
+What You Want
+Simple login screen: Enter ID Number + Name (no password needed)
+Each user's quiz scores and activity saved to database automatically
+Admin view: see all users, all scores, all activity in one table
+Admin can download Excel report of all users
+Admin can delete old user data and add/remove users
+Admin login protected with a special admin password
+Prompt to Give Your Agent
+Copy everything inside the box below and paste to your agent:
+TASK: Add a Login System to my Renner QC Academy app.
+ 
+REQUIREMENTS:
+ 
+1. LOGIN SCREEN (shows before the main app)
+   - Clean login screen with Renner QC Academy title
+   - Input field: Employee ID (number only, e.g. 10197)
+   - Input field: Full Name (text)
+   - Login button → saves user session in localStorage
+   - No password required for regular users
+   - Add a small 'Admin Login' link at the bottom
+ 
+2. USER SESSION
+   - After login, show user's name and ID in the top bar
+   - All quiz answers and scores automatically tagged with user ID + name
+   - Session persists until user clicks Logout
+ 
+3. SUPABASE DATABASE CHANGES
+   Create a new table: 'users'
+     - id (auto increment)
+     - employee_id (text, unique)
+     - name (text)
+     - created_at (timestamp)
+     - last_active (timestamp)
+ 
+   Update 'quiz_results' table (or create if not exists):
+     - id, employee_id, employee_name, question_id, is_correct,
+       answered_at, topic, difficulty
+ 
+4. ADMIN PANEL (separate protected page /admin)
+   - Admin login: password is 'MovimodaQC2026' (store in env file)
+   - Admin dashboard shows:
+     a) Table: all users with Name, ID, Total Questions, Correct %, Last Active
+     b) Filter by date range
+     c) Click any user to see their full activity log
+   - EXPORT button: downloads all data as Excel file (.xlsx)
+     Columns: Employee ID | Name | Date | Question | Correct/Wrong | Topic
+   - DELETE button: admin can select and delete user records
+   - ADD USER button: admin manually adds new employee ID + name
+ 
+5. UI
+   - Keep the existing dark Glassmorphism theme
+   - Login screen should have the same dark background
+   - Admin panel can use a slightly different color (dark navy) to
+     distinguish from user view
+ 
+Use existing Supabase connection. Add new tables via migration script.
+ 
+TASK 3 — Report Comment Chatbox (AI-Organized Findings)
+Problem
+When writing inspection reports, QC inspectors type long unorganized comments in Bangla/English mix. They need an AI tool that takes their rough notes and returns a short, clean, organized finding for the report.
+What You Want
+A new tab called 'Report Helper' or add to QC Assistant tab
+Inspector types or pastes their rough finding notes
+AI returns: short, clear, organized finding in standard QC report format
+Output format: Defect Code | Description | Severity | Quantity | Location
+One-click copy button to copy the organized text
+Prompt to Give Your Agent
+Copy everything inside the box below and paste to your agent:
+TASK: Add a 'Report Comment Helper' feature to my Renner QC Academy app.
+ 
+WHERE TO ADD IT:
+- Add as a new section inside the existing 'QC Assistant' tab
+- Place it ABOVE the current question/answer box
+- Title: 'Report Finding Organizer'
+ 
+HOW IT WORKS:
+1. Inspector types rough finding notes in a text area
+   Example input:
+   'side seam open about 3cm left side panel, also button not tight 2 pcs,
+   color shade little different from sample, RFID tag missing 5 pieces'
+ 
+2. User clicks 'Organize Finding' button
+ 
+3. AI returns a clean organized table like this:
+   ┌─────────────────────────────────────────────────────────┐
+   │ INSPECTION FINDING SUMMARY                              │
+   ├──────────┬──────────────────────┬─────────┬────────────┤
+   │ Code     │ Defect               │Severity │ Qty/Note   │
+   ├──────────┼──────────────────────┼─────────┼────────────┤
+   │ VH2      │ Open seam – left     │ Major   │ 1 pc, 3cm  │
+   │          │ side panel           │         │            │
+   ├──────────┼──────────────────────┼─────────┼────────────┤
+   │ VB5      │ Loose button         │ Major   │ 2 pcs      │
+   ├──────────┼──────────────────────┼─────────┼────────────┤
+   │ VW6      │ Shade variation vs   │ Major   │ Observe    │
+   │          │ sealed sample        │         │            │
+   ├──────────┼──────────────────────┼─────────┼────────────┤
+   │ RF1      │ RFID tag missing     │ Critical│ 5 pcs      │
+   └──────────┴──────────────────────┴─────────┴────────────┘
+   AQL IMPACT: 1 Critical (REJECT), 3 Major → CHECK AQL LIMIT
+ 
+4. Show a COPY button to copy the organized text
+ 
+BACKEND:
+- Use the existing Claude API connection (claude-sonnet-4-6)
+- System prompt for this feature:
+  "You are a Renner QC Report specialist. Take the inspector's rough notes
+  and return a clean, organized finding table. Use the official Renner defect
+  codes (VH2, VB5, VW6, RF1, etc.). Format: Code | Defect Description |
+  Severity (Critical/Major/Minor) | Quantity/Note. Then add one line:
+  AQL IMPACT summary. Be short and precise. No long explanations.
+  Use Garments V11 defect codes as primary reference."
+ 
+- Keep the response under 200 words total
+- If input is in Bangla, still output in English
+ 
+TASK 4 — Fix QC Assistant Response Format
+Problem
+When you ask a question like 'What is the defect code for seam slippage?', the QC Assistant gives a very long answer with headers, sub-headers, tables, notes, and borders. It looks like a Wikipedia article. This is too much to read on the factory floor.
+BEFORE (too long, too complex):
+## Defect Code for Seam Slippage **Source:** Garments V11 RYA26 — Part 8...  ### VH3 — Fabric Slipping Out | Code | Defect Description | Zone A | Zone B | |------|--------------------|--------| ... [3 more tables, 5 headers, 200+ words]
+AFTER (short, clear, organized):
+Defect Code: VH3 — Fabric Slipping Out Severity: Major (Zone A & B) Manual: Garments V11 — Part 8 Note: VH2 = seam opens (stitching breaks). VH3 = fabric yarns slip through.
+Prompt to Give Your Agent
+Copy everything inside the box below and paste to your agent:
+TASK: Update the QC Assistant response format in brain.js (or wherever the
+Claude API system prompt is configured for the /renner-manual command and
+the QC Assistant tab).
+ 
+CHANGE THE SYSTEM PROMPT to this:
+ 
+---SYSTEM PROMPT START---
+You are a Renner QC Expert for Movimoda Asia-Pacific Bangladesh.
+Answer every question SHORT, CLEAR, and ORGANIZED.
+ 
+STRICT RESPONSE FORMAT RULES:
+1. Maximum 6 lines total for simple questions
+2. Maximum 10 lines for complex questions
+3. NEVER use long headers like '### Defect Code for Seam Slippage'
+4. NEVER write long paragraphs
+5. NEVER repeat the question back
+6. NEVER add 'Note:', 'Key Points:', 'Related Defects:' sections unless
+   they add critical new info in 1 line
+7. Use this format for defect code questions:
+   Code: [CODE] — [Name]
+   Severity: [Critical/Major/Minor] (Zone A & B or specify)
+   Manual: [Manual name] — [Section]
+   [One line extra note only if critical to know]
+8. Use this format for process/rule questions:
+   Rule: [Short rule statement]
+   Manual: [Source]
+   Example: [One short example if helpful]
+9. If the user asks 'what is' or 'explain', give a 2-line max definition
+10. If you are not sure, say: 'Not found in loaded manuals. Check [manual].'
+ 
+GROUND every answer in the renner-manual.skill knowledge base.
+NEVER invent rules or numbers.
+---SYSTEM PROMPT END---
+ 
+Apply this system prompt to:
+- The QC Assistant chat box in the frontend (Vite app)
+- The Telegram bot /renner-manual command in brain.js
+- Both must use the same short-format system prompt
+ 
+TASK 5 — Visual UI Upgrade (More User-Friendly)
+Problem
+The current app looks good (Glassmorphism dark theme) but some things are not user-friendly. The layout needs small improvements for factory-floor use on mobile and desktop.
+What You Want
+Bigger, easier-to-tap buttons for mobile use
+Current user name and score always visible at top
+Color-coded result for quiz: green = correct, red = wrong
+Loading spinner when AI is thinking (not a blank screen)
+Toast notification when score is saved to database
+Prompt to Give Your Agent
+Copy everything inside the box below and paste to your agent:
+TASK: Small UI/UX improvements to my Renner QC Academy app (localhost:5173).
+Keep the existing Glassmorphism dark theme. Only make these specific changes:
+ 
+1. TOP BAR
+   - Always show: [User Name] [ID] [Score: X/Y] on top right
+   - Add a small Logout button (icon only) on top right
+   - Make the top bar sticky (stays visible when scrolling)
+ 
+2. QUIZ ANSWER BUTTONS
+   - After user clicks an answer:
+     * Correct answer: highlight GREEN with a checkmark ✓
+     * Wrong answer: highlight RED with an X, then show correct answer
+       highlighted in green
+   - Add a 'Next Question' button that appears after answering
+   - Make all answer option buttons minimum 48px tall for easy mobile tapping
+ 
+3. LOADING STATE
+   - When AI is generating a response, show a spinning loader
+   - Text: 'Searching Renner manuals...'
+   - Never show a blank white area while loading
+ 
+4. SCORE SAVE NOTIFICATION
+   - When a quiz answer is saved to Supabase, show a small toast
+     notification: 'Score saved ✓' (appears for 2 seconds, then disappears)
+   - Position: bottom center of screen
+ 
+5. MOBILE FRIENDLY
+   - Tab buttons (Daily Tip / Daily Quiz / QC Assistant) should be
+     full width on mobile screens
+   - Text size minimum 16px on all input fields
+   - Tip card and quiz card should have minimum padding 20px on mobile
+ 
+Do not change colors, fonts, or the overall layout structure.
+Test on both desktop and mobile view after changes.
+ 
+Quick Reference — Run Order
+Run tasks in this order. Test after each one before going to the next.
+Order	Task	Files Changed	Test By
+1st	Fix Daily Tips (nav + filter)	DailyTip component	Click ← → arrows, filter dropdown
+2nd	Add Login System	Login page, Supabase tables, admin panel	Login with ID 10197, check admin at /admin
+3rd	Report Comment Chatbox	QC Assistant tab, brain.js	Paste rough notes, get organized table
+4th	Fix QC Assistant response format	brain.js system prompt, frontend system prompt	Ask 'defect code for seam slippage' — answer must be under 6 lines
+5th	Visual UI Upgrade	CSS, all components	Test on mobile, check green/red quiz colors
+
+After all 5 tasks are done: test the full app with all 13 QC users' ID numbers to make sure login works correctly for everyone.
+
+Employee IDs from your list (Image 2): 10197, 10199, 10195, 10198, 10196, 10200, 10194, 10201

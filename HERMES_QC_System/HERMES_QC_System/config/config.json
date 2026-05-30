@@ -1,0 +1,28 @@
+{
+    "paths": {
+        "onedrive_qc_folder": "C:/Users/YOUR_USERNAME/OneDrive - Movimoda/QC_Report",
+        "output_folder": "C:/HERMES_QC_System/output",
+        "logs_folder": "C:/HERMES_QC_System/logs"
+    },
+    "email": {
+        "smtp_server": "smtp.office365.com",
+        "smtp_port": 587,
+        "sender_email": "mohammedtanvir.howlader@movimoda.com",
+        "sender_password": "USE_APP_PASSWORD_HERE",
+        "recipient_email": "mohammedtanvir.howlader@movimoda.com",
+        "cc_email": ""
+    },
+    "claude_api": {
+        "model": "claude-opus-4-7",
+        "max_tokens": 4000
+    },
+    "schedule": {
+        "daily_run_time": "22:00",
+        "email_send_time": "22:30"
+    },
+    "user": {
+        "name": "Mohammed Tanvir Howlader",
+        "designation": "Quality Management",
+        "company": "Movimoda"
+    }
+}

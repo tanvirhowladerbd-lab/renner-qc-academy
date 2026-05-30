@@ -1,0 +1,16 @@
+{
+  "agents": {
+    "defaults": {
+      "heartbeat": {
+        "every": "20s",
+        "target": "last"
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "${TELEGRAM_BOT_TOKEN}"
+    }
+  }
+}

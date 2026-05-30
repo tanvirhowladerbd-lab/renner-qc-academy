@@ -1,0 +1,28 @@
+{
+  "name": "office-ai-gateway",
+  "version": "1.0.0",
+  "description": "Office AI Telegram Gateway",
+  "main": "gateway.js",
+  "scripts": {
+    "start": "node gateway.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@azure/msal-node": "^5.1.4",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "googleapis": "^171.4.0",
+    "imap-simple": "^5.1.0",
+    "isomorphic-fetch": "^3.0.0",
+    "mailparser": "^3.9.8",
+    "node-telegram-bot-api": "^0.65.0",
+    "nodemailer": "^6.10.1",
+    "pdf-parse": "^1.1.4",
+    "pg": "^8.21.0",
+    "puppeteer-core": "^24.42.0",
+    "xlsx": "^0.18.5"
+  }
+}
