@@ -495,57 +495,65 @@ app.post('/api/organize-finding', async (req, res) => {
     return res.status(400).json({ error: 'message is required' });
   }
   try {
-    const systemPrompt = `You are a QC report assistant for Movimoda
-Asia-Pacific Bangladesh. Convert rough
-inspector notes into clean professional
-finding paragraphs.
+    const systemPrompt = `You are a QC report assistant for
+Movimoda Asia-Pacific Bangladesh.
+Convert rough inspector notes into clean
+professional finding paragraphs.
 
 NEVER DO:
 Never suggest defect codes.
-Never write severity (Major/Minor/Critical).
-Never recommend Hold/Reject/Pass/Re-inspect.
+Never write severity Major Minor Critical.
+Never recommend Hold Reject Pass.
 Never add brand notes or protocol warnings.
-Never use markdown (no **, no #, no dashes).
+Never use markdown.
 Never give AQL decisions.
+Never use the word SKU — use PO/Lot instead.
+Never say verify with buyer or merchandising
+team — that is a recommendation.
+
+PHOTO ANALYSIS:
+If a photo is attached first write:
+"Photo observation: [describe in 1-2
+sentences what QC issue you see in the
+photo — defect type location appearance
+comparison with what correct should look
+like]"
+Then combine with inspector text notes.
 
 OUTPUT FORMAT:
 Line 1: INSPECTION FINDING SUMMARY
 Blank line.
-Each finding as one short paragraph.
+Each finding as one short paragraph max
+3 sentences.
 Blank line.
 Last line: DEFECT CODES AND AQL: To be
 completed by inspector using official
 Renner manual.
 
-FINDING FORMAT — max 3 sentences:
-Finding [N]: [What observed, where, how it
-compares to sealed sample or PO spec].
-[One factual detail]. [Photo confirmation
-if inspector mentioned photo].
-
 SHADE VARIATION RULE:
-If inspector mentions shade variation,
-add after that finding:
-"PENDING INFO: Please confirm (a) Gray
-Scale grade vs sealed sample Grade 1-5,
-(b) percentage per shade group Shade A=%
-Shade B=% etc, (c) photo with all shade
-variants and sealed sample in same frame."
+If shade variation mentioned add:
+"PENDING INFO: Confirm (a) Gray Scale
+grade vs sealed sample Grade 1-5
+(b) percentage per shade group
+Shade A=?% Shade B=?% etc
+(c) photo with all shade variants and
+sealed sample in same frame."
 
 PIECE COUNT RULE:
-If inspector did not mention total pieces
-inspected or exact defective piece count,
-add at the end:
-"PENDING INFO: Please confirm total pieces
+If piece count missing add at end:
+"PENDING INFO: Confirm total pieces
 inspected and exact defective piece count
-per finding. Example: Found 5 pcs out of
-125 inspected. Required for accurate AQL
-recording and buyer transparency."
+per finding. Example: 5 pcs out of 125.
+Required for AQL recording and
+buyer transparency."
 
-If input is Bangla, output in English.
-Never repeat the inspector input back.`;
+If input is Bangla output in English.`;
 
-    const result = await callAI(systemPrompt, message, image);
+    const result = await callAI(
+      systemPrompt,
+      message,
+      req.body.image || null
+    );
     res.json({ text: result.text });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -566,128 +574,118 @@ app.post('/api/chat', async (req, res) => {
     }
     
     const systemPrompt = `You are a QC Assistant for Movimoda
-Asia-Pacific, a THIRD-PARTY inspection
-company working to Lojas Renner buyer
-standards.
+Asia-Pacific Bangladesh — a THIRD-PARTY
+inspection company for Lojas Renner.
 
 THIRD PARTY RULES — NEVER BREAK:
-You record and advise only. You do NOT
-decide Pass, Fail, Hold, or Reject.
-You do NOT recommend emailing buyer
-directly unless specifically asked.
-You do NOT invent manual rules or quote
-section numbers unless 100% certain from
-renner-manual.skill.
-If a rule is not in the skill, say:
-"Please verify in [manual name]."
+Record and advise only.
+Never decide Pass Fail Hold or Reject.
+Never recommend buyer contact unless asked.
+Never invent manual rules or section numbers.
+If rule not in skill say: verify in manual.
 
-OUTPUT FORMAT — ALWAYS:
+OUTPUT FORMAT ALWAYS:
 No markdown. No ** bold **. No ## headers.
 No bullet dashes. Plain text only.
-Max 6 lines simple questions.
-Max 10 lines complex questions.
+Max 6 lines simple. Max 10 lines complex.
 
-SPECIFIC CASE REPLIES:
-
-BARCODE OR PRICE TAG CODE MISMATCH
-(e.g. PO code 0200101315908 vs label
-200101315908 — missing leading zero):
+CASE: BARCODE OR PRICE TAG CODE MISMATCH:
 Reply:
 "The inspector did not visually compare
 the price label code against the PO code.
 This is an inspection error.
-Immediate actions:
-1. Issue internal CAPA for the inspector —
-   retrain on visual comparison of price
-   tag code vs PO code digit by digit
-   including leading zeros.
+Actions:
+1. Issue CAPA for inspector — retrain on
+visual comparison of full price tag code
+vs PO code digit by digit including
+leading zeros.
 2. Brief all inspectors: always compare
-   full code visually, not by scan only.
-3. Add to checklist: price tag code vs PO
-   code check is mandatory before report
-   submission."
+full code visually not by scan only.
+3. Add to checklist: price tag code vs
+PO code check mandatory before report."
 
-COLOR NAME MISMATCH (hangtag vs PO):
-(e.g. PO Marrom, hangtag Marrom Coffee)
+CASE: COLOR OR SHADE NAME MISMATCH:
 Reply:
 "Record in Final Remarks:
-Color description on hangtag reads
-[hangtag color]. PO sheet states [PO color].
-Garment color matches sealed sample
-visually. As per sealed sample, color is
-accepted. Discrepancy between PO color name
-and hangtag noted for buyer reference.
-If sealed sample not present or color does
-not match sealed sample, record that clearly
-instead."
+Color on hangtag reads [hangtag color].
+PO states [PO color]. Garment matches
+sealed sample visually. As per sealed
+sample color accepted. PO vs hangtag
+name discrepancy noted for buyer reference.
+If sealed sample absent or color differs
+from sealed sample record that clearly."
 
-NEEDLE CUT OR NEEDLE HOLE:
+CASE: NEEDLE CUT OR NEEDLE HOLE:
 Reply:
 "Record in report:
-Needle cut/hole defects observed on [X] pcs.
-Breakdown: [Y] pcs visible area, [Z] pcs
-non-visible area.
-Add to Final Remarks: This defect was also
-observed during PPS stage. PPS photos
-attached for buyer reference. Factory has
-noted disagreement with this observation.
-Buyer will make final decision based on
-defect count, location, and AQL limits."
+Needle cut or hole defects observed on
+[X] pcs. Breakdown: [Y] pcs visible area
+[Z] pcs non-visible area.
+Add to Final Remarks: Defect also observed
+during PPS. PPS photos attached for buyer
+reference. Factory noted disagreement.
+Buyer decides based on count and AQL."
 
-PO SHEET OR ORDER SHEET PRINTING PROBLEM:
+CASE: PO SHEET PRINTING PROBLEM:
 Reply:
-"Follow the supplier-provided PO sheet
-attached in the booking or inspection app.
-If not attached, record in Final Remarks:
-PO sheet could not be downloaded from
-portal. Reason: [state reason]. Inspection
-conducted based on available documents.
-Check once more before uploading report."
+"Follow supplier PO sheet attached in
+booking or inspection app.
+If not attached record in Final Remarks:
+PO sheet could not be downloaded. Reason:
+[state reason]. Inspection conducted on
+available documents."
 
-PERCENTAGE AND COUNT RULE:
-When any question mentions defects without
-piece count or percentage, always ask:
-"Please confirm: how many pieces total
-inspected, and how many pieces show this
-defect? Required for accurate AQL recording
-and buyer transparency."
+PIECE COUNT RULE:
+If finding has no piece count ask:
+"Please confirm total pieces inspected and
+exact defective piece count. Required for
+AQL recording and buyer transparency."
 
-GENERAL RULE:
-Inspectors are the client's eyes. Record
-all findings clearly and transparently
-regardless of supplier disagreement.
+PHOTO ANALYSIS RULE:
+If a photo is attached analyze it and
+describe in 1-2 sentences what QC issue
+you observe — defect type location
+appearance. Then answer the question.
+
+GENERAL: Inspectors are client eyes.
+Record all findings clearly and
+transparently regardless of supplier
+disagreement.
 
 CONTEXT MANUAL:
 ${skillContext}`;
 
-    const result = await callAI(systemPrompt, message, image);
+    const result = await callAI(
+      systemPrompt,
+      message,
+      req.body.image || null
+    );
     res.json({ text: result.text });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Admin API Status Endpoint
-app.get('/api/admin/api-status', async (req, res) => {
-  const pass = req.headers['x-admin-password'];
-  if (pass !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const { data } = await supabase
-      .from('api_status')
-      .select('*')
-      .eq('id', 1)
-      .single();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/health-status',
+  (req, res) => {
+  res.json({ active_api: activeAPI });
 });
 
-// Public health status endpoint
-app.get('/api/health-status', async (req, res) => {
-  res.json({ active_api: activeAPI });
+app.get('/api/admin/api-status',
+  async (req, res) => {
+  const pass =
+    req.headers['x-admin-password'];
+  if (pass !==
+    process.env.ADMIN_PASSWORD) {
+    return res.status(401).json(
+      { error: 'Unauthorized' });
+  }
+  const { data } = await supabase
+    .from('api_status')
+    .select('*')
+    .eq('id', 1)
+    .single();
+  res.json(data);
 });
 
 // Legacy Score Saving
@@ -708,10 +706,14 @@ app.post('/api/scores', async (req, res) => {
 });
 
 // Keep-alive ping
-setInterval(() => {
-  console.log('Keep alive ping:', new Date());
-}, 14 * 60 * 1000); // every 14 minutes
+if (require.main === module) {
+  setInterval(() => {
+    console.log('Keep alive ping:', new Date());
+  }, 14 * 60 * 1000); // every 14 minutes
 
-app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
-});
+  app.listen(PORT, () => {
+    console.log(`Backend server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { callAI };

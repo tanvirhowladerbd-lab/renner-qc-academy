@@ -66,17 +66,30 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [photoBase64, setPhotoBase64] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const cameraInputRef = React.useRef(null);
 
-  const handlePhotoCapture = (e) => {
+  const handlePhotoSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const base64 = ev.target.result.split(',')[1];
-      setPhotoBase64(base64);
-      setPhotoPreview(ev.target.result);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 800;
+        const ratio = Math.min(maxW / img.width, 1);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setPhotoPreview(compressed);
+        setPhotoBase64(compressed.split(',')[1]);
+      };
+      img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   // Show Toast helper
@@ -90,6 +103,7 @@ export default function App() {
   const [apiFallback, setApiFallback] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
   const [copyText, setCopyText] = useState('📋 Copy to Clipboard');
+  const [copyLabel, setCopyLabel] = useState('📋 Copy to Clipboard');
 
   // Fetch API active status for users
   useEffect(() => {
@@ -670,8 +684,8 @@ export default function App() {
         {renderLoading()}
         {renderToast()}
         <div className="header">
-          <h1>RENNER QC ACADEMY</h1>
-          <p>Movimoda Asia-Pacific Bangladesh</p>
+          <h1>MRQ Hub</h1>
+          <p>Movimoda Renner QC · Bangladesh</p>
         </div>
 
         <div className="glass-card login-card">
@@ -721,8 +735,8 @@ export default function App() {
         {renderLoading()}
         {renderToast()}
         <div className="header">
-          <h1>RENNER QC ACADEMY</h1>
-          <p>Movimoda Asia-Pacific Bangladesh</p>
+          <h1>MRQ Hub</h1>
+          <p>Movimoda Renner QC · Bangladesh</p>
         </div>
 
         <div className="glass-card login-card">
@@ -800,8 +814,8 @@ export default function App() {
         {renderLoading()}
         {renderToast()}
         <div className="header">
-          <h1>RENNER QC ACADEMY</h1>
-          <p>Movimoda Asia-Pacific Bangladesh</p>
+          <h1>MRQ Hub</h1>
+          <p>Movimoda Renner QC · Bangladesh</p>
         </div>
 
         <div className="glass-card login-card">
@@ -908,8 +922,8 @@ export default function App() {
         </div>
 
         <div className="header" style={{ marginTop: '5rem' }}>
-          <h1>RENNER QC ACADEMY</h1>
-          <p style={{ color: 'var(--accent-amber)' }}>Admin Administration Hub</p>
+          <h1>MRQ Hub</h1>
+          <p style={{ color: 'var(--accent-amber)' }}>Movimoda Renner QC · Bangladesh</p>
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
@@ -1138,13 +1152,13 @@ export default function App() {
         )}
         <button
           type="button"
-          onClick={() => document.getElementById('cameraInput').click()}
+          onClick={() => cameraInputRef.current?.click()}
           style={{
             width: '40px',
             height: '40px',
             borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.05)',
-            color: 'var(--text-primary)',
+            background: photoBase64 ? '#FFA500' : 'rgba(255, 255, 255, 0.05)',
+            color: photoBase64 ? '#000' : 'var(--text-primary)',
             border: '1px solid var(--border-color)',
             cursor: isMicActiveAnywhere ? 'not-allowed' : 'pointer',
             fontSize: '18px',
@@ -1295,12 +1309,12 @@ export default function App() {
       {renderLoading()}
       {renderToast()}
       <input
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
-        id="cameraInput"
         style={{ display: 'none' }}
-        onChange={handlePhotoCapture}
+        onChange={handlePhotoSelect}
       />
 
       {/* Sticky top bar */}
@@ -1466,15 +1480,31 @@ export default function App() {
       {/* ------------------------------------------------------------- */}
       {activeTab === 'quiz' && quiz && (
         <div className="glass-card">
-          <div className="quiz-meta">
-            <span className="step-badge">SL: #{quiz.sl} | {quiz.topic}</span>
-            <span className="step-badge" style={{
-              background: quiz.priority === 1 ? 'rgba(231,76,60,0.15)' : quiz.priority === 2 ? 'rgba(243,156,18,0.15)' : 'rgba(58,134,200,0.15)',
-              color: quiz.priority === 1 ? '#e74c3c' : quiz.priority === 2 ? '#f39c12' : '#3a86c8',
-              borderColor: 'transparent'
-            }}>
-              Priority: {quiz.priority === 1 ? 'Critical' : quiz.priority === 2 ? 'Major' : 'Standard'}
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div className="quiz-meta" style={{ display: 'flex', gap: '0.5rem', margin: 0, flexWrap: 'wrap' }}>
+              <span className="step-badge">SL: #{quiz.sl} | {quiz.topic}</span>
+              <span className="step-badge" style={{
+                background: quiz.priority === 1 ? 'rgba(231,76,60,0.15)' : quiz.priority === 2 ? 'rgba(243,156,18,0.15)' : 'rgba(58,134,200,0.15)',
+                color: quiz.priority === 1 ? '#e74c3c' : quiz.priority === 2 ? '#f39c12' : '#3a86c8',
+                borderColor: 'transparent'
+              }}>
+                Priority: {quiz.priority === 1 ? 'Critical' : quiz.priority === 2 ? 'Major' : 'Standard'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button 
+                onClick={() => setTipLanguage('EN')} 
+                className={`lang-toggle ${tipLanguage === 'EN' ? 'active' : ''}`}
+              >
+                EN
+              </button>
+              <button 
+                onClick={() => setTipLanguage('BN')} 
+                className={`lang-toggle ${tipLanguage === 'BN' ? 'active' : ''}`}
+              >
+                বাংলা
+              </button>
+            </div>
           </div>
           
           <div className="quiz-question">{quiz.question}</div>
@@ -1524,7 +1554,9 @@ export default function App() {
           {quizSubmitted && (
             <div className="explanation-box animation-fade" style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--border-color)' }}>
               <h4 style={{ color: 'var(--accent-amber)', marginBottom: '0.4rem' }}>🎯 Explanation</h4>
-              <p style={{ fontSize: '0.9rem', color: '#e0e1dd', lineHeight: '1.4' }}>{quiz.explanation}</p>
+              <p style={{ fontSize: '0.9rem', color: '#e0e1dd', lineHeight: '1.4' }}>
+                {tipLanguage === 'BN' ? (quiz.explanation_bangla || quiz.explanation_banglish || quiz.explanation) : quiz.explanation}
+              </p>
               <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#95a5a6' }}>
                 <strong>Source Manual:</strong> {quiz.source}
               </p>
@@ -1618,27 +1650,43 @@ export default function App() {
               <div className="glass-card animation-fade" style={{ background: 'rgba(7, 11, 25, 0.4)', padding: '1.2rem', borderRadius: '12px', marginTop: '1rem', border: '1px solid var(--border-color)', margin: '1rem 0 0 0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent-green)' }}>SUMMARY READY</span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(organizedFinding)
-                        .then(() => {
-                          setCopyText('✅ Copied!');
-                          setTimeout(() => setCopyText('📋 Copy to Clipboard'), 2000);
-                        });
-                    }}
-                    style={{
-                      background: '#FFA500', color: 'white',
-                      border: 'none', borderRadius: 8,
-                      padding: '8px 16px', cursor: 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    {copyText}
-                  </button>
                 </div>
                 <div style={{ fontFamily: 'Arial, sans-serif', color: 'var(--text-primary)' }}>
                   {parseOrganizedFinding(organizedFinding)}
                 </div>
+                {organizedFinding && organizedFinding.trim() !== '' && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(organizedFinding);
+                      } catch {
+                        const el = document.createElement('textarea');
+                        el.value = organizedFinding;
+                        document.body.appendChild(el);
+                        el.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(el);
+                      }
+                      setCopyLabel('✅ Copied!');
+                      setTimeout(() => setCopyLabel('📋 Copy to Clipboard'), 2000);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '10px',
+                      marginTop: '10px',
+                      background: '#FFA500',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {copyLabel}
+                  </button>
+                )}
               </div>
             )}
           </div>

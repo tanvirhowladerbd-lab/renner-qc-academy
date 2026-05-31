@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { Anthropic } = require('@anthropic-ai/sdk');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { callAI } = require('./server');
 
 const gmailSkill = require('./skills/gmail_skill');
 const qcTrackerSkill = require('./skills/qc_tracker_skill');
@@ -14,8 +13,6 @@ const hermesSkill = require('./skills/hermes_skill');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const supabaseHeaders = {
   'apikey': SUPABASE_KEY,
@@ -67,124 +64,6 @@ const supabase = {
   })
 };
 
-const anthropic = new Anthropic({
-  apiKey: ANTHROPIC_API_KEY
-});
-
-const gemini = new GoogleGenerativeAI(GEMINI_API_KEY);
-let activeAPI = 'anthropic';
-let anthropicFailedAt = null;
-
-async function callAI(systemPrompt, userMessage, imageBase64 = null) {
-  async function tryAnthropic() {
-    const content = [];
-    if (imageBase64) {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/jpeg",
-          data: imageBase64
-        }
-      });
-    }
-    content.push({ type: "text", text: userMessage });
-    const res = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: "user", content }]
-    });
-    return res.content[0].text;
-  }
-
-  async function tryGemini() {
-    const model = gemini.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction: systemPrompt
-    });
-    const parts = [];
-    if (imageBase64) {
-      parts.push({
-        inlineData: {
-          data: imageBase64,
-          mimeType: "image/jpeg"
-        }
-      });
-    }
-    parts.push({ text: userMessage });
-    const result = await model.generateContent(parts);
-    return result.response.text();
-  }
-
-  if (activeAPI === 'anthropic') {
-    try {
-      const text = await tryAnthropic();
-      if (anthropicFailedAt) {
-        anthropicFailedAt = null;
-        activeAPI = 'anthropic';
-        await supabase.from('api_status').upsert({
-          id: 1, active_api: 'anthropic',
-          status: 'healthy',
-          recovered_at: new Date().toISOString(),
-          error_message: null
-        });
-      }
-      return { text, api: 'anthropic' };
-    } catch (err) {
-      const isQuota =
-        err.status === 429 ||
-        err.status === 402 ||
-        err.status === 401 ||
-        (err.message || '').includes('quota') ||
-        (err.message || '').includes('credit') ||
-        (err.message || '').includes('limit') ||
-        (err.message || '').includes('overloaded');
-      if (isQuota) {
-        activeAPI = 'gemini';
-        anthropicFailedAt = new Date().toISOString();
-        await supabase.from('api_status').upsert({
-          id: 1, active_api: 'gemini',
-          status: 'fallback',
-          anthropic_failed_at: anthropicFailedAt,
-          error_message: err.message,
-          updated_at: new Date().toISOString()
-        });
-      } else { throw err; }
-    }
-  }
-
-  try {
-    const text = await tryGemini();
-    return { text, api: 'gemini' };
-  } catch (e) {
-    return {
-      text: 'AI service temporarily unavailable. Please try again in a few minutes.',
-      api: 'error'
-    };
-  }
-}
-
-setInterval(async () => {
-  if (activeAPI !== 'gemini') return;
-  try {
-    await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 5,
-      messages: [{ role: "user", content: "ok" }]
-    });
-    activeAPI = 'anthropic';
-    anthropicFailedAt = null;
-    await supabase.from('api_status').upsert({
-      id: 1, active_api: 'anthropic',
-      status: 'healthy',
-      recovered_at: new Date().toISOString()
-    });
-    console.log('Anthropic recovered at', new Date().toISOString());
-  } catch (e) {
-    console.log('Anthropic still down:', e.message);
-  }
-}, 30 * 60 * 1000);
 
 class OpenClawBrain {
     constructor() {
@@ -307,103 +186,95 @@ class OpenClawBrain {
                         skillContext = fs.readFileSync(skillPath, 'utf8');
                     }
 
-                    const systemPrompt = `You are a QC Assistant for Movimoda
-Asia-Pacific, a THIRD-PARTY inspection
-company working to Lojas Renner buyer
-standards.
+                    const qcAssistantSystemPrompt = `You are a QC Assistant for Movimoda
+Asia-Pacific Bangladesh — a THIRD-PARTY
+inspection company for Lojas Renner.
 
 THIRD PARTY RULES — NEVER BREAK:
-You record and advise only. You do NOT
-decide Pass, Fail, Hold, or Reject.
-You do NOT recommend emailing buyer
-directly unless specifically asked.
-You do NOT invent manual rules or quote
-section numbers unless 100% certain from
-renner-manual.skill.
-If a rule is not in the skill, say:
-"Please verify in [manual name]."
+Record and advise only.
+Never decide Pass Fail Hold or Reject.
+Never recommend buyer contact unless asked.
+Never invent manual rules or section numbers.
+If rule not in skill say: verify in manual.
 
-OUTPUT FORMAT — ALWAYS:
+OUTPUT FORMAT ALWAYS:
 No markdown. No ** bold **. No ## headers.
 No bullet dashes. Plain text only.
-Max 6 lines simple questions.
-Max 10 lines complex questions.
+Max 6 lines simple. Max 10 lines complex.
 
-SPECIFIC CASE REPLIES:
-
-BARCODE OR PRICE TAG CODE MISMATCH
-(e.g. PO code 0200101315908 vs label
-200101315908 — missing leading zero):
+CASE: BARCODE OR PRICE TAG CODE MISMATCH:
 Reply:
 "The inspector did not visually compare
 the price label code against the PO code.
 This is an inspection error.
-Immediate actions:
-1. Issue internal CAPA for the inspector —
-   retrain on visual comparison of price
-   tag code vs PO code digit by digit
-   including leading zeros.
+Actions:
+1. Issue CAPA for inspector — retrain on
+visual comparison of full price tag code
+vs PO code digit by digit including
+leading zeros.
 2. Brief all inspectors: always compare
-   full code visually, not by scan only.
-3. Add to checklist: price tag code vs PO
-   code check is mandatory before report
-   submission."
+full code visually not by scan only.
+3. Add to checklist: price tag code vs
+PO code check mandatory before report."
 
-COLOR NAME MISMATCH (hangtag vs PO):
-(e.g. PO Marrom, hangtag Marrom Coffee)
+CASE: COLOR OR SHADE NAME MISMATCH:
 Reply:
 "Record in Final Remarks:
-Color description on hangtag reads
-[hangtag color]. PO sheet states [PO color].
-Garment color matches sealed sample
-visually. As per sealed sample, color is
-accepted. Discrepancy between PO color name
-and hangtag noted for buyer reference.
-If sealed sample not present or color does
-not match sealed sample, record that clearly
-instead."
+Color on hangtag reads [hangtag color].
+PO states [PO color]. Garment matches
+sealed sample visually. As per sealed
+sample color accepted. PO vs hangtag
+name discrepancy noted for buyer reference.
+If sealed sample absent or color differs
+from sealed sample record that clearly."
 
-NEEDLE CUT OR NEEDLE HOLE:
+CASE: NEEDLE CUT OR NEEDLE HOLE:
 Reply:
 "Record in report:
-Needle cut/hole defects observed on [X] pcs.
-Breakdown: [Y] pcs visible area, [Z] pcs
-non-visible area.
-Add to Final Remarks: This defect was also
-observed during PPS stage. PPS photos
-attached for buyer reference. Factory has
-noted disagreement with this observation.
-Buyer will make final decision based on
-defect count, location, and AQL limits."
+Needle cut or hole defects observed on
+[X] pcs. Breakdown: [Y] pcs visible area
+[Z] pcs non-visible area.
+Add to Final Remarks: Defect also observed
+during PPS. PPS photos attached for buyer
+reference. Factory noted disagreement.
+Buyer decides based on count and AQL."
 
-PO SHEET OR ORDER SHEET PRINTING PROBLEM:
+CASE: PO SHEET PRINTING PROBLEM:
 Reply:
-"Follow the supplier-provided PO sheet
-attached in the booking or inspection app.
-If not attached, record in Final Remarks:
-PO sheet could not be downloaded from
-portal. Reason: [state reason]. Inspection
-conducted based on available documents.
-Check once more before uploading report."
+"Follow supplier PO sheet attached in
+booking or inspection app.
+If not attached record in Final Remarks:
+PO sheet could not be downloaded. Reason:
+[state reason]. Inspection conducted on
+available documents."
 
-PERCENTAGE AND COUNT RULE:
-When any question mentions defects without
-piece count or percentage, always ask:
-"Please confirm: how many pieces total
-inspected, and how many pieces show this
-defect? Required for accurate AQL recording
-and buyer transparency."
+PIECE COUNT RULE:
+If finding has no piece count ask:
+"Please confirm total pieces inspected and
+exact defective piece count. Required for
+AQL recording and buyer transparency."
 
-GENERAL RULE:
-Inspectors are the client's eyes. Record
-all findings clearly and transparently
-regardless of supplier disagreement.
+PHOTO ANALYSIS RULE:
+If a photo is attached analyze it and
+describe in 1-2 sentences what QC issue
+you observe — defect type location
+appearance. Then answer the question.
+
+GENERAL: Inspectors are client eyes.
+Record all findings clearly and
+transparently regardless of supplier
+disagreement.
 
 CONTEXT MANUAL:
 ${skillContext}`;
 
-                    const result = await callAI(systemPrompt, query);
-                    await bot.sendMessage(chatId, result.text);
+                    const userQuery = query;
+                    const result = await callAI(
+                        qcAssistantSystemPrompt,
+                        userQuery
+                    );
+                    const reply = result.text;
+                    await bot.sendMessage(chatId, reply);
                 } catch (err) {
                     await bot.sendMessage(chatId, `Failed to contact Renner AI assistant: ${err.message}`);
                 }
