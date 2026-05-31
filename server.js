@@ -654,6 +654,9 @@ Never recommend buyer contact unless asked.
 Never invent manual rules or section numbers.
 If rule not in skill say: verify in manual.
 
+VERIFIED SPECIFIC RULES FROM MANUALS:
+- Baby Footwear RFID: For Slipper and Baby Footwear products, the RFID tag (model ADE02) must be placed on the LEFT foot only — between insole and outsole. This is different from standard Footwear R26 rule (model ADE01 on right shoe). Source: Baby Footwear V7.
+
 OUTPUT FORMAT ALWAYS:
 No markdown. No ** bold **. No ## headers.
 No bullet dashes. Plain text only.
