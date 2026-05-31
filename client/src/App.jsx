@@ -64,13 +64,20 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const [photoBase64, setPhotoBase64] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
-  // Admin Dashboard States
-  const [adminStats, setAdminStats] = useState([]);
-  const [selectedUserLogs, setSelectedUserLogs] = useState(null);
-  const [selectedUserName, setSelectedUserName] = useState('');
-  const [newUserId, setNewUserId] = useState('');
-  const [newUserName, setNewUserName] = useState('');
+  const handlePhotoCapture = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target.result.split(',')[1];
+      setPhotoBase64(base64);
+      setPhotoPreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Show Toast helper
   const showToast = (msg) => {
@@ -79,6 +86,32 @@ export default function App() {
       setToastMessage('');
     }, 2000);
   };
+
+  const [apiFallback, setApiFallback] = useState(false);
+  const [apiStatus, setApiStatus] = useState(null);
+  const [copyText, setCopyText] = useState('📋 Copy to Clipboard');
+
+  // Fetch API active status for users
+  useEffect(() => {
+    fetch(`${API_BASE}/health-status`)
+      .then(r => r.json())
+      .then(d => setApiFallback(d.active_api === 'gemini'))
+      .catch(() => {});
+  }, []);
+
+  // Fetch detailed API status for admin
+  useEffect(() => {
+    if (isAdmin) {
+      fetch(`${API_BASE}/admin/api-status`, {
+        headers: {
+          'x-admin-password': 'MovimodaQC2026'
+        }
+      })
+      .then(r => r.json())
+      .then(data => setApiStatus(data))
+      .catch(() => {});
+    }
+  }, [isAdmin]);
 
   // Route routing simulation on mount
   useEffect(() => {
@@ -456,12 +489,14 @@ export default function App() {
     fetch(`${API_BASE}/organize-finding`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: roughFinding })
+      body: JSON.stringify({ message: roughFinding, image: photoBase64 || null })
     })
       .then(res => res.json())
       .then(data => {
         setOrganizedFinding(data.text);
         setLoading(false);
+        setPhotoBase64(null);
+        setPhotoPreview(null);
       })
       .catch(err => {
         console.error("Error organizing finding:", err);
@@ -475,8 +510,11 @@ export default function App() {
     if (!chatInput.trim()) return;
 
     const userMsg = chatInput;
+    const currentPhoto = photoBase64;
     setChatLog(prev => [...prev, { sender: 'user', text: userMsg }]);
     setChatInput('');
+    setPhotoBase64(null);
+    setPhotoPreview(null);
     setLoading(true);
     setLoadingText('Querying Renner manuals...');
 
@@ -484,7 +522,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg })
+        body: JSON.stringify({ message: userMsg, image: currentPhoto || null })
       });
       const data = await res.json();
       setChatLog(prev => [...prev, { sender: 'assistant', text: data.text || data.error }]);
@@ -809,6 +847,55 @@ export default function App() {
         {renderLoading()}
         {renderToast()}
         
+        {apiStatus && (
+          <div style={{
+            padding: 16, borderRadius: 8,
+            marginBottom: 20,
+            background:
+              apiStatus.status==='healthy'
+                ? '#1a3a1a'
+              : apiStatus.status==='fallback'
+                ? '#3a2a00'
+                : '#3a0000',
+            border: `1px solid ${
+              apiStatus.status==='healthy'
+                ? '#2d6a2d'
+              : apiStatus.status==='fallback'
+                ? '#b8860b'
+                : '#8b0000'}`
+          }}>
+            {apiStatus.status === 'healthy' && (
+              <p style={{color:'#90ee90',margin:0}}>
+                ✅ AI Engine: Anthropic Claude Active — Status: Healthy
+              </p>
+            )}
+            {apiStatus.status === 'fallback' && (
+              <>
+                <p style={{color:'#ffa500', fontWeight:'bold',margin:'0 0 8px'}}>
+                  ⚠️ AI Engine: FALLBACK — Google Gemini
+                </p>
+                <p style={{color:'#ffcc80',margin:'0 0 4px'}}>
+                  Anthropic quota exceeded or failed.
+                </p>
+                <p style={{color:'#ffcc80',margin:'0 0 4px'}}>
+                  Failed at: {new Date(apiStatus.anthropic_failed_at).toLocaleString()}
+                </p>
+                <p style={{color:'#ffcc80',margin:'0 0 4px'}}>
+                  Error: {apiStatus.error_message}
+                </p>
+                <p style={{color:'#fff3cd',margin:0}}>
+                  Action: Top up Anthropic credits at console.anthropic.com — App running normally on Gemini backup.
+                </p>
+              </>
+            )}
+            {apiStatus.status === 'error' && (
+              <p style={{color:'#ff6b6b', fontWeight:'bold',margin:0}}>
+                🔴 BOTH AI SERVICES UNAVAILABLE — Check Anthropic and Gemini API keys in Render environment variables.
+              </p>
+            )}
+          </div>
+        )}
+        
         {/* Sticky top bar */}
         <div className="sticky-bar">
           <div className="bar-info">
@@ -969,17 +1056,17 @@ export default function App() {
     );
   }
 
-  const renderMicButton = (target, type) => {
+  const renderMediaControls = (target, type) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
+    const isMicSupported = !!SpeechRecognition;
 
     const isCurrentListening = activeMic === target;
     const isCurrentProcessing = processingMic === target;
 
-    let buttonText = '🎤';
-    let title = 'Tap to speak';
-    let btnClass = '';
-    let btnStyle = {
+    let micButtonText = '🎤';
+    let micTitle = 'Tap to speak';
+    let micBtnClass = '';
+    let micBtnStyle = {
       width: '40px',
       height: '40px',
       borderRadius: '50%',
@@ -992,53 +1079,88 @@ export default function App() {
       justifyContent: 'center',
       fontSize: '1.2rem',
       transition: 'all 0.2s ease',
-      boxShadow: 'none',
       padding: 0
     };
 
     if (isCurrentListening) {
-      buttonText = '🔴';
-      title = 'Tap to stop';
-      btnClass = 'mic-btn-recording';
+      micButtonText = '🔴';
+      micTitle = 'Tap to stop';
+      micBtnClass = 'mic-btn-recording';
     } else if (isCurrentProcessing) {
-      buttonText = '⏳';
-      title = 'Processing...';
-      btnStyle.background = 'rgba(255, 255, 255, 0.2)';
+      micButtonText = '⏳';
+      micTitle = 'Processing...';
+      micBtnStyle.background = 'rgba(255, 255, 255, 0.2)';
     }
 
-    let positionStyle = {
+    let containerStyle = {
       position: 'absolute',
       right: '10px',
       bottom: '10px',
-      zIndex: 10
+      zIndex: 10,
+      display: 'flex',
+      gap: '6px',
+      alignItems: 'center'
     };
 
     if (type === 'input') {
-      positionStyle = {
+      containerStyle = {
         position: 'absolute',
         right: '8px',
         top: '50%',
         transform: 'translateY(-50%)',
-        zIndex: 10
+        zIndex: 10,
+        display: 'flex',
+        gap: '6px',
+        alignItems: 'center'
       };
     }
 
-    const handleInteraction = (e) => {
+    const handleMicInteraction = (e) => {
       e.preventDefault();
       toggleVoice(target);
     };
 
+    const isMicActiveAnywhere = activeMic !== null;
+
     return (
-      <button
-        type="button"
-        title={title}
-        className={btnClass}
-        style={{ ...btnStyle, ...positionStyle }}
-        onClick={handleInteraction}
-        onTouchStart={handleInteraction}
-      >
-        {buttonText}
-      </button>
+      <div style={containerStyle}>
+        {isMicSupported && (
+          <button
+            type="button"
+            title={micTitle}
+            className={micBtnClass}
+            style={micBtnStyle}
+            onClick={handleMicInteraction}
+            onTouchStart={handleMicInteraction}
+          >
+            {micButtonText}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => document.getElementById('cameraInput').click()}
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.05)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            cursor: isMicActiveAnywhere ? 'not-allowed' : 'pointer',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: isMicActiveAnywhere ? 0.4 : 1,
+            transition: 'all 0.2s ease',
+            padding: 0
+          }}
+          disabled={isMicActiveAnywhere}
+          title="Take photo or upload image"
+        >
+          📷
+        </button>
+      </div>
     );
   };
 
@@ -1172,13 +1294,37 @@ export default function App() {
     <div className="app-container" style={{ marginTop: '4.5rem' }}>
       {renderLoading()}
       {renderToast()}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        id="cameraInput"
+        style={{ display: 'none' }}
+        onChange={handlePhotoCapture}
+      />
 
       {/* Sticky top bar */}
       <div className="sticky-bar">
         <div className="bar-info">
           <span className="user-icon">👤</span>
           <div>
-            <strong>{user.name}</strong>
+            <strong>
+              {user.name}
+              {apiFallback && (
+                <span
+                  title="AI running on backup service"
+                  style={{
+                    display: 'inline-block',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#FFA500',
+                    marginLeft: '8px',
+                    animation: 'pulse 2s infinite'
+                  }}
+                />
+              )}
+            </strong>
             <div style={{ fontSize: '0.75rem', color: '#bdc3c7' }}>ID: {user.employee_id}</div>
           </div>
         </div>
@@ -1439,14 +1585,26 @@ export default function App() {
             <div style={{ position: 'relative' }}>
               <textarea
                 className="search-input"
-                style={{ width: '100%', minHeight: '80px', maxHeight: '180px', resize: 'vertical', fontSize: '15px', padding: '0.6rem 3.2rem 0.6rem 0.6rem', marginBottom: '0.8rem', fontFamily: 'inherit' }}
-                placeholder="e.g. T-shirt a operational checking er somoy body-te critical oil stain stain mark paise code VH2, summary: 5. Also hanger tag broken sl 12 code VD3 quantity 2"
+                style={{ width: '100%', minHeight: '80px', maxHeight: '180px', resize: 'vertical', fontSize: '15px', padding: '0.6rem 5.5rem 0.6rem 0.6rem', marginBottom: '0.8rem', fontFamily: 'inherit' }}
+                placeholder="Type or speak your rough inspection findings here (English or Bangla). Include: what was found, where, how many pieces, comparison with sealed sample or PO. AI will organize it into a clean professional finding summary."
                 value={roughFinding}
                 onChange={e => setRoughFinding(e.target.value)}
               />
-              {renderMicButton('rough', 'textarea')}
+              {renderMediaControls('rough', 'textarea')}
             </div>
             {renderVoiceControls('rough')}
+            {photoPreview && (
+              <div style={{ position: 'relative', display: 'inline-block', marginTop: '8px', marginBottom: '8px' }}>
+                <img src={photoPreview} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
+                <button
+                  type="button"
+                  onClick={() => { setPhotoBase64(null); setPhotoPreview(null); }}
+                  style={{ position: 'absolute', top: '-6px', right: '-6px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  X
+                </button>
+              </div>
+            )}
             <button 
               onClick={handleOrganizeFinding} 
               className="primary-btn" 
@@ -1460,8 +1618,22 @@ export default function App() {
               <div className="glass-card animation-fade" style={{ background: 'rgba(7, 11, 25, 0.4)', padding: '1.2rem', borderRadius: '12px', marginTop: '1rem', border: '1px solid var(--border-color)', margin: '1rem 0 0 0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent-green)' }}>SUMMARY READY</span>
-                  <button onClick={() => copyToClipboard(organizedFinding)} className="copy-badge-btn">
-                    📋 Copy Text
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(organizedFinding)
+                        .then(() => {
+                          setCopyText('✅ Copied!');
+                          setTimeout(() => setCopyText('📋 Copy to Clipboard'), 2000);
+                        });
+                    }}
+                    style={{
+                      background: '#FFA500', color: 'white',
+                      border: 'none', borderRadius: 8,
+                      padding: '8px 16px', cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {copyText}
                   </button>
                 </div>
                 <div style={{ fontFamily: 'Arial, sans-serif', color: 'var(--text-primary)' }}>
@@ -1499,12 +1671,24 @@ export default function App() {
                   onChange={e => setChatInput(e.target.value)} 
                   placeholder={chatLog.length === 0 ? "Ask a new QC question..." : "Ask anything (e.g. what is VG34? or RFID rule...)"} 
                   className="search-input"
-                  style={{ fontSize: '16px', paddingRight: '3.2rem', width: '100%' }}
+                  style={{ fontSize: '16px', paddingRight: '5.5rem', width: '100%' }}
                   disabled={loading}
                 />
-                {renderMicButton('chat', 'input')}
+                {renderMediaControls('chat', 'input')}
               </div>
               {renderVoiceControls('chat')}
+              {photoPreview && (
+                <div style={{ position: 'relative', display: 'inline-block', marginTop: '8px', marginBottom: '8px' }}>
+                  <img src={photoPreview} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
+                  <button
+                    type="button"
+                    onClick={() => { setPhotoBase64(null); setPhotoPreview(null); }}
+                    style={{ position: 'absolute', top: '-6px', right: '-6px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    X
+                  </button>
+                </div>
+              )}
               <button type="submit" className="search-btn" style={{ height: '42px', marginTop: '0.4rem' }} disabled={loading}>
                 Send Question
               </button>

@@ -149,6 +149,9 @@ h1, h2, h3, h4 {
   font-weight: 600;
   margin-bottom: 0.8rem;
   line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .tip-body {
@@ -754,4 +757,9 @@ h1, h2, h3, h4 {
   .qc-reset-btn {
     width: 100%;
   }
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
