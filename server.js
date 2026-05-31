@@ -738,7 +738,10 @@ ${skillContext}`;
 
 app.get('/api/health-status',
   (req, res) => {
-  res.json({ active_api: activeAPI });
+  res.json({
+    active_api: activeAPI,
+    gemini_key_present: !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_free_key_here'
+  });
 });
 
 app.get('/api/admin/api-status',

@@ -19,6 +19,15 @@ export default function App() {
   const [newUserId, setNewUserId] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [adminStats, setAdminStats] = useState([]);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminLogs, setAdminLogs] = useState([]);
+  const [apiStatus, setApiStatus] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [newUserForm, setNewUserForm] = useState({ employee_id: '', name: '' });
+  const [adminError, setAdminError] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(false);
   const [selectedUserLogs, setSelectedUserLogs] = useState(null);
   const [selectedUserName, setSelectedUserName] = useState('');
   
