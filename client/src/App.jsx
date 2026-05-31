@@ -18,6 +18,9 @@ export default function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(window.location.pathname === '/admin');
   const [newUserId, setNewUserId] = useState('');
   const [newUserName, setNewUserName] = useState('');
+  const [adminStats, setAdminStats] = useState([]);
+  const [selectedUserLogs, setSelectedUserLogs] = useState(null);
+  const [selectedUserName, setSelectedUserName] = useState('');
   
   // Login input states
   const [employeeIdInput, setEmployeeIdInput] = useState('');
