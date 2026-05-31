@@ -236,13 +236,83 @@ app.get('/api/tips/daily', async (req, res) => {
   }
 });
 
-// 2. Get Random Quiz Question
+// 2. Get Random Quiz Question with dynamic fallback translation and caching in Supabase
 app.get('/api/quiz/random', async (req, res) => {
   try {
     const randomSl = Math.floor(Math.random() * 1922) + 1;
     const data = await fetchSupabase(`questions?sl=eq.${randomSl}`);
     if (data && data.length > 0) {
-      res.json(data[0]);
+      const quiz = data[0];
+      
+      // If translation doesn't exist, translate and cache it!
+      if (!quiz.question_bangla) {
+        try {
+          console.log(`Translating quiz question SL: ${quiz.sl} to Bangla on the fly...`);
+          const systemPrompt = `You are a professional translator and senior QC manager at Movimoda. Your task is to translate a quiz question, its four options (a, b, c, d), and its explanation from English/Banglish to proper, conversational, natural Bangla suitable for a junior QC inspector.
+
+RULES:
+1. Keep these industry standard terms ALWAYS in English: AQL, POM, RFID, Sealed Sample, Counter Sample, Inspectorio, CAPA, Critical, Major, Minor, Hold, Reject, Pass, Fail, all defect codes (e.g., VH2, VG34, VF10, RF1, etc.), all manual names (e.g., Garments V11, etc.), all brand names (Renner, Youcom, Ashua), and all platforms.
+2. Keep numbers and measurements (e.g., 80%, 14cm, 90N, etc.) in English numerals/letters.
+3. Every option translation must be brief and correspond exactly to the meaning of the English option.
+4. Translate the explanation (which might be in English or Banglish) into clear, standard Bangla script, keeping standard terms and numbers in English.
+5. You must output ONLY a valid JSON object matching this schema:
+{
+  "question_bangla": "...",
+  "a_bangla": "...",
+  "b_bangla": "...",
+  "c_bangla": "...",
+  "d_bangla": "...",
+  "explanation_bangla": "..."
+}
+Do not write any introductory or conversational text, only the raw JSON.`;
+
+          const inputObj = {
+            question: quiz.question,
+            a: quiz.a,
+            b: quiz.b,
+            c: quiz.c,
+            d: quiz.d,
+            explanation: quiz.explanation
+          };
+
+          const aiResponse = await callAI(systemPrompt, JSON.stringify(inputObj));
+          let cleanText = aiResponse.text ? aiResponse.text.trim() : aiResponse.trim();
+          if (cleanText.startsWith('```json')) {
+            cleanText = cleanText.substring(7, cleanText.length - 3).trim();
+          } else if (cleanText.startsWith('```')) {
+            cleanText = cleanText.substring(3, cleanText.length - 3).trim();
+          }
+
+          const parsed = JSON.parse(cleanText);
+          
+          if (parsed.question_bangla) {
+            quiz.question_bangla = parsed.question_bangla;
+            quiz.a_bangla = parsed.a_bangla;
+            quiz.b_bangla = parsed.b_bangla;
+            quiz.c_bangla = parsed.c_bangla;
+            quiz.d_bangla = parsed.d_bangla;
+            quiz.explanation_bangla = parsed.explanation_bangla;
+
+            // Cache it in the database
+            await fetchSupabase(`questions?id=eq.${quiz.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                question_bangla: quiz.question_bangla,
+                a_bangla: quiz.a_bangla,
+                b_bangla: quiz.b_bangla,
+                c_bangla: quiz.c_bangla,
+                d_bangla: quiz.d_bangla,
+                explanation_bangla: quiz.explanation_bangla
+              })
+            });
+            console.log(`✅ Cached quiz translation for SL: ${quiz.sl}`);
+          }
+        } catch (translationErr) {
+          console.error(`Failed to translate quiz SL: ${quiz.sl}:`, translationErr.message);
+        }
+      }
+      
+      res.json(quiz);
     } else {
       res.status(404).json({ error: 'Question not found' });
     }

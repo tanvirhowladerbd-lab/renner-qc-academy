@@ -1512,11 +1512,15 @@ export default function App() {
             </div>
           </div>
           
-          <div className="quiz-question">{quiz.question}</div>
+          <div className="quiz-question">
+            {tipLanguage === 'BN' && quiz.question_bangla ? quiz.question_bangla : quiz.question}
+          </div>
           
           <div className="options-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', margin: '1.5rem 0' }}>
             {['A', 'B', 'C', 'D'].map(optKey => {
-              const optionText = quiz[optKey.toLowerCase()];
+              const optionText = tipLanguage === 'BN' && quiz[`${optKey.toLowerCase()}_bangla`]
+                ? quiz[`${optKey.toLowerCase()}_bangla`]
+                : quiz[optKey.toLowerCase()];
               let optClass = '';
               let mark = '';
               
