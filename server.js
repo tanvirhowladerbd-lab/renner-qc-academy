@@ -123,7 +123,7 @@ async function callAI(systemPrompt, userMessage, imageBase64 = null) {
 
   async function tryGemini() {
     const model = gemini.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: systemPrompt
     });
     const parts = [];
