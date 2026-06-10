@@ -719,3 +719,16 @@ When reviewing an inspection report, check:
 
 ### Seal Number & Position
 - Seal number must match the PO color name exactly (e.g., "ANTHRACITE" instead of "BLACK").
+
+---
+
+## PART 21 — KITS AND SETS INSPECTION GUIDELINES (Active June 2026)
+- **Applies to:** Renner, Youcom and Ashua brands.
+- **Sets (2 pieces)**:
+  - Sampling is carried out by considering 1 set as 1 unit. For example, in a visual sampling of 32 units, 32 complete sets must be selected.
+  - If a defect is found in only 1 component of the set, it is counted as 1 unit.
+  - If visual defects are found in both pieces of the set, only the most severe defect is recorded, and the other is mentioned in the additional information field.
+- **Kits (3 or more pieces)**:
+  - Sampling is carried out considering the total number of individual pieces. For example, in a visual sampling of 32 pieces from a kit containing 5 panties, 7 kits will be opened and 32 individual panties will be selected for visual analysis.
+  - In the case of defect reporting, each individual piece (e.g., each panty) counts as one unit.
+
