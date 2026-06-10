@@ -84,6 +84,7 @@ const anthropic = new Anthropic({
 
 // Gemini Client
 const gemini = new GoogleGenerativeAI(GEMINI_API_KEY);
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 let activeAPI = 'anthropic';
 let anthropicFailedAt = null;
 
@@ -97,7 +98,7 @@ function verifyAdmin(req, res, next) {
   }
 }
 
-// Master function to route and fallback between Anthropic and Gemini
+// Master function to route and fallback between Anthropic, Gemini, and GitHub Models
 async function callAI(systemPrompt, userMessage, imageBase64 = null) {
   async function tryAnthropic() {
     const content = [];
@@ -140,6 +141,47 @@ async function callAI(systemPrompt, userMessage, imageBase64 = null) {
     return result.response.text();
   }
 
+  async function tryGitHubModels() {
+    const url = "https://models.inference.ai.azure.com/chat/completions";
+    const content = [];
+    if (imageBase64) {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${imageBase64}`
+        }
+      });
+    }
+    content.push({ type: "text", text: userMessage });
+
+    const body = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content }
+      ],
+      model: "gpt-4o-mini",
+      temperature: 0.1,
+      max_tokens: 1000
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GITHUB_TOKEN}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`GitHub Models error: ${res.status} - ${text}`);
+    }
+
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
+
   if (activeAPI === 'anthropic') {
     try {
       const text = await tryAnthropic();
@@ -173,19 +215,34 @@ async function callAI(systemPrompt, userMessage, imageBase64 = null) {
           error_message: err.message,
           updated_at: new Date().toISOString()
         });
-      } else { throw err; }
+      } else { 
+        console.error("Non-quota Anthropic error:", err.message);
+      }
     }
   }
 
+  // Fallback 1: Try Gemini
   try {
     const text = await tryGemini();
     return { text, api: 'gemini' };
-  } catch (e) {
-    return {
-      text: 'AI service temporarily unavailable. Please try again in a few minutes.',
-      api: 'error'
-    };
+  } catch (geminiErr) {
+    console.error("Gemini failed, falling back to GitHub Models:", geminiErr.message);
   }
+
+  // Fallback 2: Try GitHub Models (GPT-4o-mini)
+  if (GITHUB_TOKEN) {
+    try {
+      const text = await tryGitHubModels();
+      return { text, api: 'github' };
+    } catch (githubErr) {
+      console.error("GitHub Models failed:", githubErr.message);
+    }
+  }
+
+  return {
+    text: 'AI service temporarily unavailable. Please try again in a few minutes.',
+    api: 'error'
+  };
 }
 
 // Auto-recovery: check Anthropic every 30 min
