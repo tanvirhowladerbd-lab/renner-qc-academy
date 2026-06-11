@@ -692,6 +692,62 @@ If input is Bangla output in English.`;
   }
 });
 
+// Helper for RAG keyword-based context retrieval from manual
+function retrieveContext(query, fullText) {
+  if (!fullText) return "";
+  
+  // Split by header sections
+  const sections = fullText.split(/(?=## )/g);
+  
+  const stopWords = new Set(["how", "to", "do", "we", "is", "a", "an", "the", "for", "in", "on", "at", "of", "with", "about", "what", "which", "are", "from", "and"]);
+  const queryWords = query.toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w));
+    
+  if (queryWords.length === 0) {
+    return sections.slice(0, 3).join("\n\n");
+  }
+  
+  // Score sections based on keyword match density
+  const scoredSections = sections.map(section => {
+    let score = 0;
+    const sectionTextLower = section.toLowerCase();
+    
+    queryWords.forEach(word => {
+      if (sectionTextLower.includes(word)) {
+        score += 10;
+        const regex = new RegExp(word, 'g');
+        const matches = sectionTextLower.match(regex);
+        if (matches) {
+          score += matches.length;
+        }
+      }
+    });
+    
+    return { section, score };
+  });
+  
+  scoredSections.sort((a, b) => b.score - a.score);
+  
+  const selected = [];
+  let currentLength = 0;
+  
+  for (const item of scoredSections) {
+    if (item.score <= 0 && selected.length >= 2) break;
+    if (currentLength + item.section.length > 12000) continue; // Keep under ~3000 tokens
+    
+    selected.push(item.section);
+    currentLength += item.section.length;
+  }
+  
+  if (selected.length === 0) {
+    return sections.slice(0, 2).join("\n\n");
+  }
+  
+  return selected.join("\n\n");
+}
+
 // 7. Defect Search & Manual QA Assistant
 app.post('/api/chat', async (req, res) => {
   const { message, image } = req.body;
@@ -788,7 +844,7 @@ transparently regardless of supplier
 disagreement.
 
 CONTEXT MANUAL:
-${skillContext}`;
+${retrieveContext(message, skillContext)}`;
 
     const result = await callAI(
       systemPrompt,
