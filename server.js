@@ -245,7 +245,7 @@ async function callAI(systemPrompt, userMessage, imageBase64 = null) {
   }
 
   return {
-    text: `AI service temporarily unavailable. Details: ${lastErrors}`,
+    text: 'AI service temporarily unavailable. Please try again in a few minutes.',
     api: 'error'
   };
 }
