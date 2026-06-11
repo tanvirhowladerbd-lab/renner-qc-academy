@@ -221,12 +221,14 @@ async function callAI(systemPrompt, userMessage, imageBase64 = null) {
     }
   }
 
+  let lastErrors = "";
   // Fallback 1: Try Gemini
   try {
     const text = await tryGemini();
     return { text, api: 'gemini' };
   } catch (geminiErr) {
     console.error("Gemini failed, falling back to GitHub Models:", geminiErr.message);
+    lastErrors += `Gemini: ${geminiErr.message}. `;
   }
 
   // Fallback 2: Try GitHub Models (GPT-4o-mini)
@@ -236,11 +238,14 @@ async function callAI(systemPrompt, userMessage, imageBase64 = null) {
       return { text, api: 'github' };
     } catch (githubErr) {
       console.error("GitHub Models failed:", githubErr.message);
+      lastErrors += `GitHub: ${githubErr.message}. `;
     }
+  } else {
+    lastErrors += "GitHub Token missing. ";
   }
 
   return {
-    text: 'AI service temporarily unavailable. Please try again in a few minutes.',
+    text: `AI service temporarily unavailable. Details: ${lastErrors}`,
     api: 'error'
   };
 }
